@@ -72,87 +72,39 @@ func makeGraph() (g temporalflow.SerializedGraph) {
 			Value: "Bufo",
 		},
 	}
-	greet00 := temporalflow.Node{
-		Kind:  string(temporalflow.NodeKindActivity),
-		Label: "greet_00",
-		Activity: temporalflow.Activity{
-			ActivityType: "greeter",
-			ActivityOptions: workflow.ActivityOptions{
-				StartToCloseTimeout: 10 * time.Second,
-				RetryPolicy: &temporal.RetryPolicy{
-					InitialInterval:    5 * time.Second,
-					BackoffCoefficient: 1.0,
-					MaximumAttempts:    5,
-				},
-			},
-		},
-	}
-	greet01 := temporalflow.Node{
-		Kind:  string(temporalflow.NodeKindActivity),
-		Label: "greet_01",
-		Activity: temporalflow.Activity{
-			ActivityType: "greeter",
-			ActivityOptions: workflow.ActivityOptions{
-				StartToCloseTimeout: 10 * time.Second,
-				RetryPolicy: &temporal.RetryPolicy{
-					InitialInterval:    5 * time.Second,
-					BackoffCoefficient: 1.0,
-					MaximumAttempts:    5,
-				},
-			},
-		},
-	}
-	greet02 := temporalflow.Node{
-		Kind:  string(temporalflow.NodeKindActivity),
-		Label: "greet_02",
-		Activity: temporalflow.Activity{
-			ActivityType: "greeter",
-			ActivityOptions: workflow.ActivityOptions{
-				StartToCloseTimeout: 10 * time.Second,
-				RetryPolicy: &temporal.RetryPolicy{
-					InitialInterval:    5 * time.Second,
-					BackoffCoefficient: 1.0,
-					MaximumAttempts:    5,
-				},
-			},
-		},
-	}
-	greet03 := temporalflow.Node{
-		Kind:  string(temporalflow.NodeKindActivity),
-		Label: "greet_03",
-		Activity: temporalflow.Activity{
-			ActivityType: "greeter",
-			ActivityOptions: workflow.ActivityOptions{
-				StartToCloseTimeout: 10 * time.Second,
-				RetryPolicy: &temporal.RetryPolicy{
-					InitialInterval:    5 * time.Second,
-					BackoffCoefficient: 1.0,
-					MaximumAttempts:    5,
-				},
-			},
-		},
-	}
 	obs := temporalflow.Node{
 		Kind:  string(temporalflow.NodeKindObserver),
 		Label: "obs",
 	}
-	g.Nodes = []temporalflow.Node{
-		nameVar,
-		greet00,
-		greet01,
-		greet02,
-		greet03,
-		obs,
+	var greetNodes []temporalflow.Node
+	for index := range 32 {
+		greetNodes = append(greetNodes, temporalflow.Node{
+			Kind:  string(temporalflow.NodeKindActivity),
+			Label: fmt.Sprintf("greet_%02d", index),
+			Activity: temporalflow.Activity{
+				ActivityType: "greeter",
+				ActivityOptions: workflow.ActivityOptions{
+					StartToCloseTimeout: 10 * time.Second,
+					RetryPolicy: &temporal.RetryPolicy{
+						InitialInterval:    5 * time.Second,
+						BackoffCoefficient: 1.0,
+						MaximumAttempts:    5,
+					},
+				},
+			},
+		})
 	}
-	g.Edges = []temporalflow.Edge{
-		{FromLabel: nameVar.Label, ToLabel: greet00.Label},
-		{FromLabel: nameVar.Label, ToLabel: greet01.Label},
-		{FromLabel: nameVar.Label, ToLabel: greet02.Label},
-		{FromLabel: nameVar.Label, ToLabel: greet03.Label},
-		{FromLabel: greet00.Label, ToLabel: obs.Label},
-		{FromLabel: greet01.Label, ToLabel: obs.Label},
-		{FromLabel: greet02.Label, ToLabel: obs.Label},
-		{FromLabel: greet03.Label, ToLabel: obs.Label},
+	g.Nodes = append([]temporalflow.Node{
+		nameVar,
+		obs,
+	}, greetNodes...)
+	for index := range 32 {
+		g.Edges = append(g.Edges, temporalflow.Edge{
+			FromLabel: nameVar.Label, ToLabel: fmt.Sprintf("greet_%02d", index),
+		})
+		g.Edges = append(g.Edges, temporalflow.Edge{
+			FromLabel: fmt.Sprintf("greet_%02d", index), ToLabel: obs.Label,
+		})
 	}
 	return
 }

@@ -54,9 +54,17 @@ func (sg SerializedGraph) FlowGraph() (g FlowGraph, err error) {
 		incr.ExpertNode(parsed).SetSetAt(n.SetAt)
 		incr.ExpertNode(parsed).SetChangedAt(n.ChangedAt)
 		incr.ExpertNode(parsed).SetRecomputedAt(n.RecomputedAt)
-		incr.ExpertNode(parsed).SetHeight(n.Height)
-		incr.ExpertNode(parsed).SetHeightInRecomputeHeap(n.HeightInRecomputeHeap)
-		incr.ExpertNode(parsed).SetHeightInAdjustHeightsHeap(n.HeightInAdjustHeightsHeap)
+
+		// only do this ... ???
+		if n.Height != nil {
+			incr.ExpertNode(parsed).SetHeight(*n.Height)
+		}
+		if n.HeightInRecomputeHeap != nil {
+			incr.ExpertNode(parsed).SetHeightInRecomputeHeap(*n.HeightInRecomputeHeap)
+		}
+		if n.HeightInAdjustHeightsHeap != nil {
+			incr.ExpertNode(parsed).SetHeightInAdjustHeightsHeap(*n.HeightInAdjustHeightsHeap)
+		}
 
 		g.NodeLookup[parsed.Node().ID()] = parsed
 		if n.Label != "" {
@@ -133,10 +141,10 @@ func (fg FlowGraph) Serialize() (output SerializedGraph) {
 		}
 		for _, o := range incr.ExpertNode(n).Observers() {
 			output.Edges = append(output.Edges, Edge{
-				FromID:    o.Node().ID(),
-				FromLabel: o.Node().Label(),
-				ToID:      n.Node().ID(),
-				ToLabel:   n.Node().Label(),
+				FromID:    n.Node().ID(),
+				FromLabel: n.Node().Label(),
+				ToID:      o.Node().ID(),
+				ToLabel:   o.Node().Label(),
 			})
 		}
 	}
@@ -148,9 +156,9 @@ func serializeNode(n incr.INode) (output Node) {
 	output.Kind = n.Node().Kind()
 	output.Label = n.Node().Label()
 
-	output.Height = incr.ExpertNode(n).Height()
-	output.HeightInRecomputeHeap = incr.ExpertNode(n).HeightInRecomputeHeap()
-	output.HeightInAdjustHeightsHeap = incr.ExpertNode(n).HeightInAdjustHeightsHeap()
+	output.Height = ptrTo(incr.ExpertNode(n).Height())
+	output.HeightInRecomputeHeap = ptrTo(incr.ExpertNode(n).HeightInRecomputeHeap())
+	output.HeightInAdjustHeightsHeap = ptrTo(incr.ExpertNode(n).HeightInAdjustHeightsHeap())
 	output.SetAt = incr.ExpertNode(n).SetAt()
 	output.RecomputedAt = incr.ExpertNode(n).RecomputedAt()
 	output.ChangedAt = incr.ExpertNode(n).ChangedAt()
@@ -177,14 +185,18 @@ func serializeNode(n incr.INode) (output Node) {
 	return
 }
 
+func ptrTo[A any](v A) *A {
+	return &v
+}
+
 type Node struct {
 	ID    incr.Identifier
 	Label string
 	Kind  string
 
-	Height                    int
-	HeightInRecomputeHeap     int
-	HeightInAdjustHeightsHeap int
+	Height                    *int
+	HeightInRecomputeHeap     *int
+	HeightInAdjustHeightsHeap *int
 
 	SetAt        uint64
 	ChangedAt    uint64
