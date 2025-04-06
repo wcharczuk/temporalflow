@@ -94,3 +94,73 @@ func (w Workflow) HostGraph(ctx workflow.Context, graph SerializedGraph) error {
 	}
 	return nil
 }
+
+func (w Workflow) parallelRecompute(ctx workflow.Context, graph *FlowGraph) (err error) {
+	stabilizeCtx := WithWorkflowContext(context.Background(), ctx)
+	eg := incr.ExpertGraph(graph.Graph)
+	if err = eg.EnsureNotStabilizing(stabilizeCtx); err != nil {
+		return
+	}
+	stabilizeCtx = eg.StabilizeStart(stabilizeCtx)
+	defer func() {
+		eg.StabilizeEnd(stabilizeCtx, err)
+	}()
+	if incr.ExpertGraph(graph.Graph).RecomputeHeapLen() == 0 {
+		return
+	}
+
+	var immediateRecompute []INode
+
+	parallelRecomputeNode := func(ctx context.Context, n incr.INode) (err error) {
+		err = eg.Recompute(ctx, n, true)
+		if incr.ExpertNode(n).Always() {
+			immediateRecompute = append(immediateRecompute, n)
+		}
+		return
+	}
+
+	/*
+		var immediateRecompute []INode
+		var immediateRecomputeMu sync.Mutex
+		parallelRecomputeNode := func(ctx context.Context, n INode) (err error) {
+			err = graph.recompute(ctx, n, true)
+			if n.Node().always {
+				immediateRecomputeMu.Lock()
+				immediateRecompute = append(immediateRecompute, n)
+				immediateRecomputeMu.Unlock()
+			}
+			return
+		}
+
+		var iter recomputeHeapListIter
+		for graph.recomputeHeap.len() > 0 {
+			graph.recomputeHeap.setIterToMinHeight(&iter)
+			err = parallelBatch(ctx, parallelRecomputeNode, iter.Next, graph.parallelism)
+			if err != nil {
+				break
+			}
+		}
+		if err != nil {
+			if graph.clearRecomputeHeapOnError {
+				aborted := graph.recomputeHeap.clear()
+				for _, node := range aborted {
+					for _, ah := range node.Node().onAbortedHandlers {
+						ah(ctx, err)
+					}
+				}
+			}
+		}
+		if len(immediateRecompute) > 0 {
+			graph.recomputeHeap.mu.Lock()
+			for _, n := range immediateRecompute {
+				if n.Node().heightInRecomputeHeap == HeightUnset {
+					graph.recomputeHeap.addNodeUnsafe(n)
+				}
+			}
+			graph.recomputeHeap.mu.Unlock()
+		}
+
+	*/
+
+	return nil
+}

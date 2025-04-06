@@ -3,7 +3,7 @@ module temporal-flow
 go 1.24.2
 
 require (
-	github.com/wcharczuk/go-incr v1.4.4
+	github.com/wcharczuk/go-incr v1.4.6
 	go.temporal.io/sdk v1.33.1
 )
 
