@@ -59,7 +59,7 @@ func (w Workflow) HostGraph(ctx workflow.Context, graph SerializedGraph) error {
 		sel := workflow.NewSelector(ctx)
 		sel.AddReceive(signalStabilizeChannel, func(r workflow.ReceiveChannel, _ bool) {
 			_ = r.Receive(ctx, nil)
-			err = flowGraph.Graph.Stabilize(WithWorkflowContext(context.Background(), ctx))
+			err = w.parallelRecompute(ctx, &flowGraph)
 			if err != nil {
 				workflow.GetLogger(ctx).Error("stabilization error", slog.Any("err", err))
 				shouldExit = true
@@ -70,7 +70,7 @@ func (w Workflow) HostGraph(ctx workflow.Context, graph SerializedGraph) error {
 			_ = setVariableChannel.Receive(ctx, &data)
 			nodeID := data.NodeID
 			if data.NodeID.IsZero() {
-				nodeID, _ = flowGraph.NodeLabelLookup[data.NodeLabel]
+				nodeID = flowGraph.NodeLabelLookup[data.NodeLabel]
 			}
 			if nodeID.IsZero() {
 				workflow.GetLogger(ctx).Info("signal set value; nodeID is zero, cannot continue", slog.String("nodeID", data.NodeID.Short()), slog.String("nodeLabel", data.NodeLabel))
@@ -109,9 +109,8 @@ func (w Workflow) parallelRecompute(ctx workflow.Context, graph *FlowGraph) (err
 		return
 	}
 
-	var immediateRecompute []INode
-
-	parallelRecomputeNode := func(ctx context.Context, n incr.INode) (err error) {
+	var immediateRecompute []incr.INode
+	recomputeNode := func(ctx context.Context, n incr.INode) (err error) {
 		err = eg.Recompute(ctx, n, true)
 		if incr.ExpertNode(n).Always() {
 			immediateRecompute = append(immediateRecompute, n)
@@ -119,48 +118,50 @@ func (w Workflow) parallelRecompute(ctx workflow.Context, graph *FlowGraph) (err
 		return
 	}
 
-	/*
-		var immediateRecompute []INode
-		var immediateRecomputeMu sync.Mutex
-		parallelRecomputeNode := func(ctx context.Context, n INode) (err error) {
-			err = graph.recompute(ctx, n, true)
-			if n.Node().always {
-				immediateRecomputeMu.Lock()
-				immediateRecompute = append(immediateRecompute, n)
-				immediateRecomputeMu.Unlock()
-			}
-			return
-		}
+	iter := eg.RecomputeHeapListIterator()
 
-		var iter recomputeHeapListIter
-		for graph.recomputeHeap.len() > 0 {
-			graph.recomputeHeap.setIterToMinHeight(&iter)
-			err = parallelBatch(ctx, parallelRecomputeNode, iter.Next, graph.parallelism)
-			if err != nil {
-				break
+exit:
+	for eg.RecomputeHeapLen() > 0 {
+		eg.RecomputeHeapSetIterToMinHeight(iter)
+		n, ok := iter.Next()
+		var toFinish []FinishStabilizer
+		for ok {
+			if err = recomputeNode(stabilizeCtx, n); err != nil {
+				goto exit
+			}
+			if typed, ok := n.(FinishStabilizer); ok {
+				toFinish = append(toFinish, typed)
+			}
+			n, ok = iter.Next()
+		}
+		for _, f := range toFinish {
+			if err = f.FinishStabilize(stabilizeCtx); err != nil {
+				goto exit
 			}
 		}
-		if err != nil {
-			if graph.clearRecomputeHeapOnError {
-				aborted := graph.recomputeHeap.clear()
-				for _, node := range aborted {
-					for _, ah := range node.Node().onAbortedHandlers {
-						ah(ctx, err)
-					}
+	}
+
+	if err != nil {
+		if eg.ClearRecomputeHeapOnError() {
+			aborted := eg.RecomputeHeapClear()
+			for _, node := range aborted {
+				for _, ah := range incr.ExpertNode(node).OnAbortHandlers() {
+					ah(stabilizeCtx, err)
 				}
 			}
 		}
-		if len(immediateRecompute) > 0 {
-			graph.recomputeHeap.mu.Lock()
-			for _, n := range immediateRecompute {
-				if n.Node().heightInRecomputeHeap == HeightUnset {
-					graph.recomputeHeap.addNodeUnsafe(n)
-				}
+	}
+	if len(immediateRecompute) > 0 {
+		for _, n := range immediateRecompute {
+			if incr.ExpertNode(n).HeightInRecomputeHeap() == incr.HeightUnset {
+				eg.RecomputeHeapAdd(n)
 			}
-			graph.recomputeHeap.mu.Unlock()
 		}
-
-	*/
-
+	}
 	return nil
+}
+
+// FinishStabilizer is new! and fun!
+type FinishStabilizer interface {
+	FinishStabilize(context.Context) error
 }

@@ -7,13 +7,16 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	temporalflow "temporal-flow"
 	"time"
+
+	"temporalflow"
 
 	"github.com/wcharczuk/go-incr"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/log"
+	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/worker"
+	"go.temporal.io/sdk/workflow"
 )
 
 func main() {
@@ -62,13 +65,6 @@ func main() {
 
 func makeGraph() (g temporalflow.SerializedGraph) {
 	g.ID = incr.NewIdentifier()
-	urlVar := temporalflow.Node{
-		Kind:  string(temporalflow.NodeKindVariable),
-		Label: "url",
-		Var: temporalflow.Var{
-			Value: "http://example.com",
-		},
-	}
 	nameVar := temporalflow.Node{
 		Kind:  string(temporalflow.NodeKindVariable),
 		Label: "name",
@@ -76,59 +72,87 @@ func makeGraph() (g temporalflow.SerializedGraph) {
 			Value: "Bufo",
 		},
 	}
-	fetchURL := temporalflow.Node{
+	greet00 := temporalflow.Node{
 		Kind:  string(temporalflow.NodeKindActivity),
-		Label: "fetchURL",
+		Label: "greet_00",
 		Activity: temporalflow.Activity{
-			ActivityType:        "fetchURL",
-			StartToCloseTimeout: 10 * time.Second,
-			RetryInterval:       5 * time.Second,
-			MaxAttempts:         5,
+			ActivityType: "greeter",
+			ActivityOptions: workflow.ActivityOptions{
+				StartToCloseTimeout: 10 * time.Second,
+				RetryPolicy: &temporal.RetryPolicy{
+					InitialInterval:    5 * time.Second,
+					BackoffCoefficient: 1.0,
+					MaximumAttempts:    5,
+				},
+			},
 		},
 	}
-	greet := temporalflow.Node{
+	greet01 := temporalflow.Node{
 		Kind:  string(temporalflow.NodeKindActivity),
-		Label: "greet",
+		Label: "greet_01",
 		Activity: temporalflow.Activity{
-			ActivityType:        "greeter",
-			StartToCloseTimeout: time.Second,
-			RetryInterval:       5 * time.Second,
-			MaxAttempts:         1,
+			ActivityType: "greeter",
+			ActivityOptions: workflow.ActivityOptions{
+				StartToCloseTimeout: 10 * time.Second,
+				RetryPolicy: &temporal.RetryPolicy{
+					InitialInterval:    5 * time.Second,
+					BackoffCoefficient: 1.0,
+					MaximumAttempts:    5,
+				},
+			},
 		},
 	}
-	greetAgain := temporalflow.Node{
+	greet02 := temporalflow.Node{
 		Kind:  string(temporalflow.NodeKindActivity),
-		Label: "greet_again",
+		Label: "greet_02",
 		Activity: temporalflow.Activity{
-			ActivityType:        "greeter",
-			StartToCloseTimeout: time.Second,
-			RetryInterval:       5 * time.Second,
-			MaxAttempts:         1,
+			ActivityType: "greeter",
+			ActivityOptions: workflow.ActivityOptions{
+				StartToCloseTimeout: 10 * time.Second,
+				RetryPolicy: &temporal.RetryPolicy{
+					InitialInterval:    5 * time.Second,
+					BackoffCoefficient: 1.0,
+					MaximumAttempts:    5,
+				},
+			},
 		},
 	}
-	obs00 := temporalflow.Node{
+	greet03 := temporalflow.Node{
+		Kind:  string(temporalflow.NodeKindActivity),
+		Label: "greet_03",
+		Activity: temporalflow.Activity{
+			ActivityType: "greeter",
+			ActivityOptions: workflow.ActivityOptions{
+				StartToCloseTimeout: 10 * time.Second,
+				RetryPolicy: &temporal.RetryPolicy{
+					InitialInterval:    5 * time.Second,
+					BackoffCoefficient: 1.0,
+					MaximumAttempts:    5,
+				},
+			},
+		},
+	}
+	obs := temporalflow.Node{
 		Kind:  string(temporalflow.NodeKindObserver),
-		Label: "obs00",
-	}
-	obs01 := temporalflow.Node{
-		Kind:  string(temporalflow.NodeKindObserver),
-		Label: "obs01",
+		Label: "obs",
 	}
 	g.Nodes = []temporalflow.Node{
-		urlVar,
 		nameVar,
-		fetchURL,
-		greet,
-		greetAgain,
-		obs00,
-		obs01,
+		greet00,
+		greet01,
+		greet02,
+		greet03,
+		obs,
 	}
 	g.Edges = []temporalflow.Edge{
-		{FromLabel: urlVar.Label, ToLabel: fetchURL.Label},
-		{FromLabel: nameVar.Label, ToLabel: greet.Label},
-		{FromLabel: greet.Label, ToLabel: greetAgain.Label},
-		{FromLabel: fetchURL.Label, ToLabel: obs00.Label},
-		{FromLabel: greetAgain.Label, ToLabel: obs01.Label},
+		{FromLabel: nameVar.Label, ToLabel: greet00.Label},
+		{FromLabel: nameVar.Label, ToLabel: greet01.Label},
+		{FromLabel: nameVar.Label, ToLabel: greet02.Label},
+		{FromLabel: nameVar.Label, ToLabel: greet03.Label},
+		{FromLabel: greet00.Label, ToLabel: obs.Label},
+		{FromLabel: greet01.Label, ToLabel: obs.Label},
+		{FromLabel: greet02.Label, ToLabel: obs.Label},
+		{FromLabel: greet03.Label, ToLabel: obs.Label},
 	}
 	return
 }

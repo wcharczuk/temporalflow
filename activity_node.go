@@ -22,6 +22,7 @@ var (
 	_ incr.MapNIncr[int, string] = (*activityNode[int, string])(nil)
 	_ incr.INode                 = (*activityNode[int, string])(nil)
 	_ incr.IStabilize            = (*activityNode[int, string])(nil)
+	_ FinishStabilizer           = (*activityNode[int, string])(nil)
 	_ fmt.Stringer               = (*activityNode[int, string])(nil)
 )
 
@@ -38,6 +39,7 @@ type activityNode[Inputs, Output any] struct {
 	activityOptions workflow.ActivityOptions
 
 	inputs []incr.Incr[Inputs]
+	fut    workflow.Future
 	val    Output
 }
 
@@ -82,20 +84,25 @@ func (an *activityNode[Inputs, Output]) Node() *incr.Node { return an.n }
 func (an *activityNode[Inputs, Output]) Value() Output { return an.val }
 
 func (an *activityNode[Inputs, Output]) Stabilize(ctx context.Context) (err error) {
-	var val Output
 	values := make([]any, len(an.inputs))
 	for index := range an.inputs {
 		values[index] = an.inputs[index].Value()
 	}
 	wctx := GetWorkflowContext(ctx)
 	wctx = workflow.WithActivityOptions(wctx, an.activityOptions)
-	fut := workflow.ExecuteActivity(wctx, an.activityType, values...)
-	err = fut.Get(wctx, &val)
+	an.fut = workflow.ExecuteActivity(wctx, an.activityType, values...)
+	return
+}
+
+func (an *activityNode[Inputs, Output]) FinishStabilize(ctx context.Context) (err error) {
+	var val Output
+	wctx := GetWorkflowContext(ctx)
+	err = an.fut.Get(wctx, &val)
 	if err != nil {
 		return
 	}
 	an.val = val
-	return
+	return nil
 }
 
 func (an *activityNode[Inputs, Output]) String() string {

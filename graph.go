@@ -2,10 +2,8 @@ package temporalflow
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/wcharczuk/go-incr"
-	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
 
@@ -15,6 +13,7 @@ type SerializedGraph struct {
 	StabilizationNum uint64
 	Nodes            []Node
 	Edges            []Edge
+	RecomputeHeap    []incr.Identifier
 }
 
 func (sg SerializedGraph) FlowGraph() (g FlowGraph, err error) {
@@ -38,16 +37,7 @@ func (sg SerializedGraph) FlowGraph() (g FlowGraph, err error) {
 			g.Variables = append(g.Variables, parsedVar)
 			parsed = parsedVar
 		case string(NodeKindActivity):
-			parsedActivity := ActivityNode[any, any](g.Graph, n.Activity.ActivityType, workflow.ActivityOptions{
-				TaskQueue:           n.Activity.TaskQueue,
-				StartToCloseTimeout: n.Activity.StartToCloseTimeout,
-				RetryPolicy: &temporal.RetryPolicy{
-					InitialInterval:    n.Activity.RetryInterval,
-					BackoffCoefficient: 1.0,
-					MaximumInterval:    n.Activity.RetryInterval,
-					MaximumAttempts:    int32(n.Activity.MaxAttempts),
-				},
-			})
+			parsedActivity := ActivityNode[any, any](g.Graph, n.Activity.ActivityType, n.Activity.ActivityOptions)
 			activityLookup[parsedActivity.Node().ID()] = parsedActivity
 			parsed = parsedActivity
 		case string(NodeKindObserver):
@@ -101,6 +91,12 @@ func (sg SerializedGraph) FlowGraph() (g FlowGraph, err error) {
 		}
 		typedForAddNode.AddInput(fromNode.(incr.Incr[any]))
 	}
+	for _, nodeID := range sg.RecomputeHeap {
+		n, ok := g.NodeLookup[nodeID]
+		if ok {
+			incr.ExpertGraph(g.Graph).RecomputeHeapAdd(n)
+		}
+	}
 	return
 }
 
@@ -120,6 +116,7 @@ func (fg FlowGraph) Serialize() (output SerializedGraph) {
 	output.ID = fg.Graph.ID()
 	output.StabilizationNum = incr.ExpertGraph(fg.Graph).StabilizationNum()
 	output.Label = fg.Graph.Label()
+	output.RecomputeHeap = incr.ExpertGraph(fg.Graph).RecomputeHeapIDs()
 	for _, n := range fg.NodeLookup {
 		output.Nodes = append(output.Nodes, serializeNode(n))
 		for _, p := range incr.ExpertNode(n).Parents() {
@@ -165,10 +162,7 @@ func serializeNode(n incr.INode) (output Node) {
 			return
 		}
 		output.Activity.ActivityType = typed.ActivityType()
-		output.Activity.TaskQueue = typed.ActivityOptions().TaskQueue
-		output.Activity.MaxAttempts = int(typed.ActivityOptions().RetryPolicy.MaximumAttempts)
-		output.Activity.RetryInterval = typed.ActivityOptions().RetryPolicy.InitialInterval
-		output.Activity.StartToCloseTimeout = typed.ActivityOptions().StartToCloseTimeout
+		output.Activity.ActivityOptions = typed.ActivityOptions()
 	case string(NodeKindObserver):
 		// do nothing
 	}
@@ -211,9 +205,6 @@ type Var struct {
 }
 
 type Activity struct {
-	TaskQueue           string
-	ActivityType        string
-	StartToCloseTimeout time.Duration
-	MaxAttempts         int
-	RetryInterval       time.Duration
+	ActivityType    string
+	ActivityOptions workflow.ActivityOptions
 }
