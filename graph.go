@@ -54,6 +54,10 @@ func (sg SerializedGraph) FlowGraph() (g FlowGraph, err error) {
 		incr.ExpertNode(parsed).SetSetAt(n.SetAt)
 		incr.ExpertNode(parsed).SetChangedAt(n.ChangedAt)
 		incr.ExpertNode(parsed).SetRecomputedAt(n.RecomputedAt)
+		incr.ExpertNode(parsed).SetHeight(n.Height)
+		incr.ExpertNode(parsed).SetHeightInRecomputeHeap(n.HeightInRecomputeHeap)
+		incr.ExpertNode(parsed).SetHeightInAdjustHeightsHeap(n.HeightInAdjustHeightsHeap)
+
 		g.NodeLookup[parsed.Node().ID()] = parsed
 		if n.Label != "" {
 			g.NodeLabelLookup[n.Label] = parsed.Node().ID()
@@ -143,6 +147,10 @@ func serializeNode(n incr.INode) (output Node) {
 	output.ID = n.Node().ID()
 	output.Kind = n.Node().Kind()
 	output.Label = n.Node().Label()
+
+	output.Height = incr.ExpertNode(n).Height()
+	output.HeightInRecomputeHeap = incr.ExpertNode(n).HeightInRecomputeHeap()
+	output.HeightInAdjustHeightsHeap = incr.ExpertNode(n).HeightInAdjustHeightsHeap()
 	output.SetAt = incr.ExpertNode(n).SetAt()
 	output.RecomputedAt = incr.ExpertNode(n).RecomputedAt()
 	output.ChangedAt = incr.ExpertNode(n).ChangedAt()
@@ -173,6 +181,10 @@ type Node struct {
 	ID    incr.Identifier
 	Label string
 	Kind  string
+
+	Height                    int
+	HeightInRecomputeHeap     int
+	HeightInAdjustHeightsHeap int
 
 	SetAt        uint64
 	ChangedAt    uint64
