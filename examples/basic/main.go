@@ -55,21 +55,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	// res, err := c.QueryWorkflow(context.Background(), run.GetID(), run.GetRunID(), temporalflow.QueryValues)
-	// if err != nil {
-	// 	slog.Error("Unable to query workflow", slog.Any("err", err))
-	// 	os.Exit(1)
-	// }
-
-	// var data map[string]any
-	// if err := res.Get(&data); err != nil {
-	// 	slog.Error("Unable to decode workflow results", slog.Any("err", err))
-	// 	os.Exit(1)
-	// }
-	// fmt.Printf("%#v\n", data)
-
 	fmt.Println()
-	fmt.Println("Workflow Started! you can quit now or leave this open and look at things at http://locahost:8233")
+	fmt.Println("Workflow Started! You can interact with the graph with the tools in the UI found here: http://locahost:8233")
 	select {}
 }
 
