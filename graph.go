@@ -9,21 +9,28 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
-// CreateFlowGraph creates a flow graph from a serialized graph.
-func CreateFlowGraph(input SerializedGraph) (g FlowGraph, err error) {
+type SerializedGraph struct {
+	ID               incr.Identifier
+	Label            string
+	StabilizationNum uint64
+	Nodes            []Node
+	Edges            []Edge
+}
+
+func (sg SerializedGraph) FlowGraph() (g FlowGraph, err error) {
 	g.Graph = incr.New(
 		incr.OptGraphDeterministic(true),
 	)
-	if !input.ID.IsZero() {
-		incr.ExpertGraph(g.Graph).SetID(input.ID)
+	if !sg.ID.IsZero() {
+		incr.ExpertGraph(g.Graph).SetID(sg.ID)
 	}
-	g.Graph.SetLabel(input.Label)
-	incr.ExpertGraph(g.Graph).SetStabilizationNum(input.StabilizationNum)
+	g.Graph.SetLabel(sg.Label)
+	incr.ExpertGraph(g.Graph).SetStabilizationNum(sg.StabilizationNum)
 
 	activityLookup := make(map[incr.Identifier]incr.INode)
-	g.NodeLookup = make(map[incr.Identifier]incr.INode, len(input.Nodes))
-	g.NodeLabelLookup = make(map[string]incr.Identifier, len(input.Nodes))
-	for _, n := range input.Nodes {
+	g.NodeLookup = make(map[incr.Identifier]incr.INode, len(sg.Nodes))
+	g.NodeLabelLookup = make(map[string]incr.Identifier, len(sg.Nodes))
+	for _, n := range sg.Nodes {
 		var parsed incr.INode
 		switch n.Kind {
 		case string(NodeKindVariable):
@@ -62,7 +69,7 @@ func CreateFlowGraph(input SerializedGraph) (g FlowGraph, err error) {
 			g.NodeLabelLookup[n.Label] = parsed.Node().ID()
 		}
 	}
-	for _, e := range input.Edges {
+	for _, e := range sg.Edges {
 		fromID := e.FromID
 		if fromID.IsZero() {
 			fromID = g.NodeLabelLookup[e.FromLabel]
@@ -77,7 +84,6 @@ func CreateFlowGraph(input SerializedGraph) (g FlowGraph, err error) {
 		if toID.IsZero() {
 			continue
 		}
-
 		fromNode, ok := g.NodeLookup[fromID]
 		if !ok {
 			err = fmt.Errorf("from node with id %s not found", e.FromID)
@@ -118,8 +124,18 @@ func (fg FlowGraph) Serialize() (output SerializedGraph) {
 		output.Nodes = append(output.Nodes, serializeNode(n))
 		for _, p := range incr.ExpertNode(n).Parents() {
 			output.Edges = append(output.Edges, Edge{
-				FromID: p.Node().ID(),
-				ToID:   n.Node().ID(),
+				FromID:    p.Node().ID(),
+				FromLabel: p.Node().Label(),
+				ToID:      n.Node().ID(),
+				ToLabel:   n.Node().Label(),
+			})
+		}
+		for _, o := range incr.ExpertNode(n).Observers() {
+			output.Edges = append(output.Edges, Edge{
+				FromID:    o.Node().ID(),
+				FromLabel: o.Node().Label(),
+				ToID:      n.Node().ID(),
+				ToLabel:   n.Node().Label(),
 			})
 		}
 	}
@@ -157,14 +173,6 @@ func serializeNode(n incr.INode) (output Node) {
 		// do nothing
 	}
 	return
-}
-
-type SerializedGraph struct {
-	ID               incr.Identifier
-	Label            string
-	StabilizationNum uint64
-	Nodes            []Node
-	Edges            []Edge
 }
 
 type Node struct {

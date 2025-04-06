@@ -24,7 +24,7 @@ type SignalSetVariableData struct {
 }
 
 func (w Workflow) HostGraph(ctx workflow.Context, graph SerializedGraph) error {
-	flowGraph, err := CreateFlowGraph(graph)
+	flowGraph, err := graph.FlowGraph()
 	if err != nil {
 		return err
 	}
@@ -58,7 +58,6 @@ func (w Workflow) HostGraph(ctx workflow.Context, graph SerializedGraph) error {
 	for !shouldExit {
 		sel := workflow.NewSelector(ctx)
 		sel.AddReceive(signalStabilizeChannel, func(r workflow.ReceiveChannel, _ bool) {
-			workflow.GetLogger(ctx).Info("signal stabilize; awaiting signal")
 			_ = r.Receive(ctx, nil)
 			err = flowGraph.Graph.Stabilize(WithWorkflowContext(context.Background(), ctx))
 			if err != nil {
@@ -66,10 +65,9 @@ func (w Workflow) HostGraph(ctx workflow.Context, graph SerializedGraph) error {
 				shouldExit = true
 			}
 		})
-		sel.AddReceive(signalSetVariableChannel, func(variableChannel workflow.ReceiveChannel, _ bool) {
+		sel.AddReceive(signalSetVariableChannel, func(setVariableChannel workflow.ReceiveChannel, _ bool) {
 			var data SignalSetVariableData
-			workflow.GetLogger(ctx).Info("signal set value; awaiting signal")
-			_ = variableChannel.Receive(ctx, &data)
+			_ = setVariableChannel.Receive(ctx, &data)
 			nodeID := data.NodeID
 			if data.NodeID.IsZero() {
 				nodeID, _ = flowGraph.NodeLabelLookup[data.NodeLabel]
@@ -92,7 +90,6 @@ func (w Workflow) HostGraph(ctx workflow.Context, graph SerializedGraph) error {
 		sel.AddReceive(ctx.Done(), func(_ workflow.ReceiveChannel, _ bool) {
 			shouldExit = true
 		})
-		workflow.GetLogger(ctx).Info("workflow awaiting signals")
 		sel.Select(ctx)
 	}
 	return nil
