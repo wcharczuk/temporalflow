@@ -63,6 +63,8 @@ func main() {
 	select {}
 }
 
+const splay = 64
+
 func makeGraph() (g temporalflow.SerializedGraph) {
 	g.ID = incr.NewIdentifier()
 	nameVar := temporalflow.Node{
@@ -77,7 +79,7 @@ func makeGraph() (g temporalflow.SerializedGraph) {
 		Label: "obs",
 	}
 	var greetNodes []temporalflow.Node
-	for index := range 32 {
+	for index := range splay {
 		greetNodes = append(greetNodes, temporalflow.Node{
 			Kind:  string(temporalflow.NodeKindActivity),
 			Label: fmt.Sprintf("greet_%02d", index),
@@ -98,7 +100,7 @@ func makeGraph() (g temporalflow.SerializedGraph) {
 		nameVar,
 		obs,
 	}, greetNodes...)
-	for index := range 32 {
+	for index := range splay {
 		g.Edges = append(g.Edges, temporalflow.Edge{
 			FromLabel: nameVar.Label, ToLabel: fmt.Sprintf("greet_%02d", index),
 		})
@@ -150,15 +152,15 @@ var _ log.Logger = (*slogShim)(nil)
 
 type slogShim struct{}
 
-func (slogShim) Debug(msg string, keyvals ...interface{}) {
+func (slogShim) Debug(msg string, keyvals ...any) {
 	slog.Debug(msg, keyvals...)
 }
-func (slogShim) Info(msg string, keyvals ...interface{}) {
+func (slogShim) Info(msg string, keyvals ...any) {
 	slog.Info(msg, keyvals...)
 }
-func (slogShim) Warn(msg string, keyvals ...interface{}) {
+func (slogShim) Warn(msg string, keyvals ...any) {
 	slog.Warn(msg, keyvals...)
 }
-func (slogShim) Error(msg string, keyvals ...interface{}) {
+func (slogShim) Error(msg string, keyvals ...any) {
 	slog.Error(msg, keyvals...)
 }

@@ -91,6 +91,9 @@ func (w Workflow) HostGraph(ctx workflow.Context, graph SerializedGraph) error {
 			shouldExit = true
 		})
 		sel.Select(ctx)
+		if workflow.GetInfo(ctx).GetContinueAsNewSuggested() {
+			return workflow.NewContinueAsNewError(ctx, w.HostGraph, flowGraph.Serialize())
+		}
 	}
 	return nil
 }
