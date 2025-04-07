@@ -63,7 +63,7 @@ func main() {
 	select {}
 }
 
-const splay = 64
+const splay = 1024
 
 func makeGraph() (g temporalflow.SerializedGraph) {
 	g.ID = incr.NewIdentifier()

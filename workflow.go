@@ -132,6 +132,10 @@ exit:
 			if err = recomputeNode(stabilizeCtx, n); err != nil {
 				goto exit
 			}
+			if workflow.GetInfo(ctx).GetContinueAsNewSuggested() {
+				err = workflow.NewContinueAsNewError(ctx, w.HostGraph, graph.Serialize())
+				return
+			}
 			if typed, ok := n.(FinishStabilizer); ok {
 				toFinish = append(toFinish, typed)
 			}
