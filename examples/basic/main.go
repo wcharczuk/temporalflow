@@ -9,9 +9,9 @@ import (
 	"os"
 	"time"
 
-	"temporalflow"
-
 	"github.com/wcharczuk/go-incr"
+	"github.com/wcharczuk/temporalflow"
+
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/log"
 	"go.temporal.io/sdk/temporal"

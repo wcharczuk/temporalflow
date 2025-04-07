@@ -1,4 +1,4 @@
-module temporalflow
+module github.com/wcharczuk/temporalflow
 
 go 1.24.2
 
