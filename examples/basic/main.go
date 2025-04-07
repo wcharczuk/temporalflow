@@ -59,7 +59,7 @@ func main() {
 	}
 
 	fmt.Println()
-	fmt.Println("Workflow Started! You can interact with the graph with the tools in the UI found here: http://locahost:8233")
+	fmt.Println("Workflow Started! You can interact with the graph with the tools in the UI found here: http://localhost:8233")
 	select {}
 }
 
