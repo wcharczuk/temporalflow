@@ -52,6 +52,7 @@ func (w Workflow) HostGraph(ctx workflow.Context, graph SerializedGraph) error {
 	}); err != nil {
 		return err
 	}
+
 	signalStabilizeChannel := workflow.GetSignalChannel(ctx, SignalStabilize)
 	signalSetVariableChannel := workflow.GetSignalChannel(ctx, SignalSetVariable)
 	var shouldExit bool
@@ -132,10 +133,10 @@ exit:
 			if err = recomputeNode(stabilizeCtx, n); err != nil {
 				goto exit
 			}
-			if workflow.GetInfo(ctx).GetContinueAsNewSuggested() {
-				err = workflow.NewContinueAsNewError(ctx, w.HostGraph, graph.Serialize())
-				return
-			}
+			// if workflow.GetInfo(ctx).GetContinueAsNewSuggested() {
+			// 	err = workflow.NewContinueAsNewError(ctx, w.HostGraph, graph.Serialize())
+			// 	return
+			// }
 			if typed, ok := n.(FinishStabilizer); ok {
 				toFinish = append(toFinish, typed)
 			}

@@ -8,12 +8,14 @@ import (
 )
 
 type SerializedGraph struct {
-	ID               incr.Identifier
-	Label            string
-	StabilizationNum uint64
-	Nodes            []Node
-	Edges            []Edge
-	RecomputeHeap    []incr.Identifier
+	ID                     incr.Identifier
+	Label                  string
+	Status                 int32
+	StabilizationNum       uint64
+	Nodes                  []Node
+	Edges                  []Edge
+	RecomputeHeap          []incr.Identifier
+	SetDuringStabilization []incr.Identifier
 }
 
 func (sg SerializedGraph) FlowGraph() (g FlowGraph, err error) {
@@ -129,6 +131,7 @@ func (fg FlowGraph) Serialize() (output SerializedGraph) {
 	output.StabilizationNum = incr.ExpertGraph(fg.Graph).StabilizationNum()
 	output.Label = fg.Graph.Label()
 	output.RecomputeHeap = incr.ExpertGraph(fg.Graph).RecomputeHeapIDs()
+
 	for _, n := range fg.NodeLookup {
 		output.Nodes = append(output.Nodes, serializeNode(n))
 		for _, p := range incr.ExpertNode(n).Parents() {
