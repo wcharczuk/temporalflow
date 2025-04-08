@@ -18,6 +18,50 @@ type SerializedGraph struct {
 	SetDuringStabilization []incr.Identifier
 }
 
+type Node struct {
+	ID    incr.Identifier
+	Label string
+	Kind  string
+
+	Height                    *int
+	HeightInRecomputeHeap     *int
+	HeightInAdjustHeightsHeap *int
+
+	SetAt        uint64
+	ChangedAt    uint64
+	RecomputedAt uint64
+
+	NumRecomputes uint64
+	NumChanges    uint64
+
+	Activity Activity
+	Var      Var
+}
+
+type NodeKind string
+
+var (
+	NodeKindVariable NodeKind = incr.KindVar
+	NodeKindActivity NodeKind = "activity"
+	NodeKindObserver NodeKind = incr.KindObserver
+)
+
+type Edge struct {
+	FromID    incr.Identifier
+	FromLabel string
+	ToID      incr.Identifier
+	ToLabel   string
+}
+
+type Var struct {
+	Value any
+}
+
+type Activity struct {
+	ActivityType    string
+	ActivityOptions workflow.ActivityOptions
+}
+
 func (sg SerializedGraph) FlowGraph() (g FlowGraph, err error) {
 	g.Graph = incr.New(
 		incr.OptGraphDeterministic(true),
@@ -190,48 +234,4 @@ func serializeNode(n incr.INode) (output Node) {
 
 func ptrTo[A any](v A) *A {
 	return &v
-}
-
-type Node struct {
-	ID    incr.Identifier
-	Label string
-	Kind  string
-
-	Height                    *int
-	HeightInRecomputeHeap     *int
-	HeightInAdjustHeightsHeap *int
-
-	SetAt        uint64
-	ChangedAt    uint64
-	RecomputedAt uint64
-
-	NumRecomputes uint64
-	NumChanges    uint64
-
-	Activity Activity
-	Var      Var
-}
-
-type NodeKind string
-
-var (
-	NodeKindVariable NodeKind = incr.KindVar
-	NodeKindActivity NodeKind = "activity"
-	NodeKindObserver NodeKind = incr.KindObserver
-)
-
-type Edge struct {
-	FromID    incr.Identifier
-	FromLabel string
-	ToID      incr.Identifier
-	ToLabel   string
-}
-
-type Var struct {
-	Value any
-}
-
-type Activity struct {
-	ActivityType    string
-	ActivityOptions workflow.ActivityOptions
 }
