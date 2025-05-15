@@ -33,7 +33,7 @@ func main() {
 
 	w := worker.New(c, "default", worker.Options{})
 
-	wf := temporalflow.Workflow{}
+	wf := temporalflow.Orchestrator{}
 	w.RegisterWorkflow(wf.HostGraph)
 
 	// register all the activities
@@ -67,44 +67,40 @@ const splay = 1024
 
 func makeGraph() (g temporalflow.SerializedGraph) {
 	g.ID = incr.NewIdentifier()
-	nameVar := temporalflow.Node{
-		Kind:  string(temporalflow.NodeKindVariable),
+	nameVar := temporalflow.SerializedNode{
+		Kind:  temporalflow.NodeKindVariable,
 		Label: "name",
-		Var: temporalflow.Var{
-			Value: "Bufo",
-		},
+		Value: "Bufo",
 	}
-	obs := temporalflow.Node{
-		Kind:  string(temporalflow.NodeKindObserver),
+	obs := temporalflow.SerializedNode{
+		Kind:  temporalflow.NodeKindObserver,
 		Label: "obs",
 	}
-	var greetNodes []temporalflow.Node
+	var greetNodes []temporalflow.SerializedNode
 	for index := range splay {
-		greetNodes = append(greetNodes, temporalflow.Node{
-			Kind:  string(temporalflow.NodeKindActivity),
-			Label: fmt.Sprintf("greet_%02d", index),
-			Activity: temporalflow.Activity{
-				ActivityType: "greeter",
-				ActivityOptions: workflow.ActivityOptions{
-					StartToCloseTimeout: 10 * time.Second,
-					RetryPolicy: &temporal.RetryPolicy{
-						InitialInterval:    5 * time.Second,
-						BackoffCoefficient: 1.0,
-						MaximumAttempts:    5,
-					},
+		greetNodes = append(greetNodes, temporalflow.SerializedNode{
+			Kind:         temporalflow.NodeKindActivity,
+			Label:        fmt.Sprintf("greet_%02d", index),
+			ActivityType: "greeter",
+			ActivityOptions: &workflow.ActivityOptions{
+				StartToCloseTimeout: 10 * time.Second,
+				RetryPolicy: &temporal.RetryPolicy{
+					InitialInterval:    5 * time.Second,
+					BackoffCoefficient: 1.0,
+					MaximumAttempts:    5,
 				},
 			},
 		})
 	}
-	g.Nodes = append([]temporalflow.Node{
+	g.Nodes = append([]temporalflow.SerializedNode{
 		nameVar,
 		obs,
 	}, greetNodes...)
 	for index := range splay {
-		g.Edges = append(g.Edges, temporalflow.Edge{
+		g.Edges = append(g.Edges, temporalflow.SerializedEdge{
 			FromLabel: nameVar.Label, ToLabel: fmt.Sprintf("greet_%02d", index),
 		})
-		g.Edges = append(g.Edges, temporalflow.Edge{
+		g.Edges = append(g.Edges, temporalflow.SerializedEdge{
 			FromLabel: fmt.Sprintf("greet_%02d", index), ToLabel: obs.Label,
 		})
 	}

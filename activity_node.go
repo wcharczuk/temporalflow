@@ -9,12 +9,19 @@ import (
 )
 
 // ActivityNode returns a new activity node.
-func ActivityNode[Inputs, Output any](scope incr.Scope, activityType string, activityOptions workflow.ActivityOptions) ActivityNodeIncr[Inputs, Output] {
+func ActivityNode[Inputs, Output any](scope incr.Scope, activityType string, activityOptions *workflow.ActivityOptions) ActivityNodeIncr[Inputs, Output] {
 	return incr.WithinScope(scope, &activityNode[Inputs, Output]{
-		n:               incr.NewNode("activity"),
+		n:               incr.NewNode(string(NodeKindActivity)),
 		activityType:    activityType,
 		activityOptions: activityOptions,
 	})
+}
+
+// ActivityNodeIncr is the interface that activtiy nodes implement.
+type ActivityNodeIncr[Inputs, Output any] interface {
+	incr.MapNIncr[Inputs, Output]
+	ActivityType() string
+	ActivityOptions() *workflow.ActivityOptions
 }
 
 var (
@@ -22,21 +29,14 @@ var (
 	_ incr.MapNIncr[int, string] = (*activityNode[int, string])(nil)
 	_ incr.INode                 = (*activityNode[int, string])(nil)
 	_ incr.IStabilize            = (*activityNode[int, string])(nil)
-	_ FinishStabilizer           = (*activityNode[int, string])(nil)
+	_ IFinishStabilize           = (*activityNode[int, string])(nil)
 	_ fmt.Stringer               = (*activityNode[int, string])(nil)
 )
-
-type ActivityNodeIncr[Inputs, Output any] interface {
-	incr.MapNIncr[Inputs, Output]
-
-	ActivityType() string
-	ActivityOptions() workflow.ActivityOptions
-}
 
 type activityNode[Inputs, Output any] struct {
 	n               *incr.Node
 	activityType    string
-	activityOptions workflow.ActivityOptions
+	activityOptions *workflow.ActivityOptions
 
 	inputs []incr.Incr[Inputs]
 	fut    workflow.Future
@@ -44,13 +44,14 @@ type activityNode[Inputs, Output any] struct {
 }
 
 func (an *activityNode[Inputs, Output]) ActivityType() string { return an.activityType }
-func (an *activityNode[Inputs, Output]) ActivityOptions() workflow.ActivityOptions {
+
+func (an *activityNode[Inputs, Output]) ActivityOptions() *workflow.ActivityOptions {
 	return an.activityOptions
 }
 
 func (an *activityNode[Inputs, Output]) Parents() []incr.INode {
 	output := make([]incr.INode, len(an.inputs))
-	for i := 0; i < len(an.inputs); i++ {
+	for i := range an.inputs {
 		output[i] = an.inputs[i]
 	}
 	return output
@@ -81,6 +82,10 @@ func (an *activityNode[Inputs, Output]) RemoveInput(id incr.Identifier) error {
 
 func (an *activityNode[Inputs, Output]) Node() *incr.Node { return an.n }
 
+func (an *activityNode[Inputs, Output]) SetValue(value Output) {
+	an.val = value
+}
+
 func (an *activityNode[Inputs, Output]) Value() Output { return an.val }
 
 func (an *activityNode[Inputs, Output]) Stabilize(ctx context.Context) (err error) {
@@ -89,7 +94,10 @@ func (an *activityNode[Inputs, Output]) Stabilize(ctx context.Context) (err erro
 		values[index] = an.inputs[index].Value()
 	}
 	wctx := GetWorkflowContext(ctx)
-	wctx = workflow.WithActivityOptions(wctx, an.activityOptions)
+
+	if an.activityOptions != nil {
+		wctx = workflow.WithActivityOptions(wctx, *an.activityOptions)
+	}
 	an.fut = workflow.ExecuteActivity(wctx, an.activityType, values...)
 	return
 }
@@ -107,16 +115,4 @@ func (an *activityNode[Inputs, Output]) FinishStabilize(ctx context.Context) (er
 
 func (an *activityNode[Inputs, Output]) String() string {
 	return an.n.String()
-}
-
-func remove[A incr.INode](nodes []A, id incr.Identifier) (output []A, removed A) {
-	output = make([]A, 0, len(nodes))
-	for _, n := range nodes {
-		if n.Node().ID() != id {
-			output = append(output, n)
-		} else {
-			removed = n
-		}
-	}
-	return
 }

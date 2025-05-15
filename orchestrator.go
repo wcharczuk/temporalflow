@@ -8,7 +8,7 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
-type Workflow struct{}
+type Orchestrator struct{}
 
 var (
 	SignalStabilize   = "flow_signal_stabilize"
@@ -23,7 +23,7 @@ type SignalSetVariableData struct {
 	Value     any
 }
 
-func (w Workflow) HostGraph(ctx workflow.Context, graph SerializedGraph) error {
+func (w Orchestrator) HostGraph(ctx workflow.Context, graph SerializedGraph) error {
 	flowGraph, err := graph.FlowGraph()
 	if err != nil {
 		return err
@@ -99,7 +99,7 @@ func (w Workflow) HostGraph(ctx workflow.Context, graph SerializedGraph) error {
 	return nil
 }
 
-func (w Workflow) parallelRecompute(ctx workflow.Context, graph *FlowGraph) (err error) {
+func (w Orchestrator) parallelRecompute(ctx workflow.Context, graph *FlowGraph) (err error) {
 	stabilizeCtx := WithWorkflowContext(context.Background(), ctx)
 	eg := incr.ExpertGraph(graph.Graph)
 	if err = eg.EnsureNotStabilizing(stabilizeCtx); err != nil {
@@ -128,7 +128,7 @@ exit:
 	for eg.RecomputeHeapLen() > 0 {
 		eg.RecomputeHeapSetIterToMinHeight(iter)
 		n, ok := iter.Next()
-		var toFinish []FinishStabilizer
+		var toFinish []IFinishStabilize
 		for ok {
 			if err = recomputeNode(stabilizeCtx, n); err != nil {
 				goto exit
@@ -137,7 +137,7 @@ exit:
 			// 	err = workflow.NewContinueAsNewError(ctx, w.HostGraph, graph.Serialize())
 			// 	return
 			// }
-			if typed, ok := n.(FinishStabilizer); ok {
+			if typed, ok := n.(IFinishStabilize); ok {
 				toFinish = append(toFinish, typed)
 			}
 			n, ok = iter.Next()
@@ -167,9 +167,4 @@ exit:
 		}
 	}
 	return nil
-}
-
-// FinishStabilizer is new! and fun!
-type FinishStabilizer interface {
-	FinishStabilize(context.Context) error
 }
