@@ -17,10 +17,14 @@ var (
 	QueryGraph        = "flow_query_graph"
 )
 
-type SignalSetVariableData struct {
+type NodeSelector struct {
 	NodeID    incr.Identifier
 	NodeLabel string
-	Value     any
+}
+
+type SignalSetVariableArgs struct {
+	Selector NodeSelector
+	Value    any
 }
 
 func (w Orchestrator) HostGraph(ctx workflow.Context, graph SerializedGraph) error {
@@ -67,25 +71,28 @@ func (w Orchestrator) HostGraph(ctx workflow.Context, graph SerializedGraph) err
 			}
 		})
 		sel.AddReceive(signalSetVariableChannel, func(setVariableChannel workflow.ReceiveChannel, _ bool) {
-			var data SignalSetVariableData
+			var data SignalSetVariableArgs
 			_ = setVariableChannel.Receive(ctx, &data)
-			nodeID := data.NodeID
-			if data.NodeID.IsZero() {
-				nodeID = flowGraph.NodeLabelLookup[data.NodeLabel]
+			nodeID := data.Selector.NodeID
+			if data.Selector.NodeID.IsZero() {
+				nodeID = flowGraph.NodeLabelLookup[data.Selector.NodeLabel]
 			}
+			// if we didn't get a nodeID, or we couldn't look up the nodeID by nodeLabel, fail
+
+			logAttrs := []any{slog.String("nodeID", data.Selector.NodeID.Short()), slog.String("nodeLabel", data.Selector.NodeLabel)}
 			if nodeID.IsZero() {
-				workflow.GetLogger(ctx).Info("signal set value; nodeID is zero, cannot continue", slog.String("nodeID", data.NodeID.Short()), slog.String("nodeLabel", data.NodeLabel))
+				workflow.GetLogger(ctx).Info("signal set value; nodeID is zero, cannot continue", logAttrs...)
 				return
 			}
 			if foundNode, ok := flowGraph.NodeLookup[nodeID]; ok {
 				if typed, ok := foundNode.(incr.VarIncr[any]); ok {
 					typed.Set(data.Value)
-					workflow.GetLogger(ctx).Info("signal set value; set successfully", slog.String("nodeID", data.NodeID.Short()), slog.String("nodeLabel", data.NodeLabel))
+					workflow.GetLogger(ctx).Info("signal set value; set successfully", logAttrs...)
 				} else {
-					workflow.GetLogger(ctx).Error("signal set value; node is not a variable node", slog.String("nodeID", data.NodeID.Short()), slog.String("nodeLabel", data.NodeLabel))
+					workflow.GetLogger(ctx).Error("signal set value; node is not a variable node", logAttrs...)
 				}
 			} else {
-				workflow.GetLogger(ctx).Error("signal set value; node with identifier not found", slog.String("nodeID", data.NodeID.Short()), slog.String("nodeLabel", data.NodeLabel))
+				workflow.GetLogger(ctx).Error("signal set value; node with identifier not found", logAttrs...)
 			}
 		})
 		sel.AddReceive(ctx.Done(), func(_ workflow.ReceiveChannel, _ bool) {
