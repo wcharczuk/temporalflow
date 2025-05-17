@@ -34,7 +34,7 @@ func main() {
 	w := worker.New(c, "default", worker.Options{})
 
 	wf := temporalflow.Orchestrator{}
-	w.RegisterWorkflow(wf.HostGraph)
+	w.RegisterWorkflow(wf.Orchestrate)
 
 	// register all the activities
 	w.RegisterActivity(greeter)
@@ -50,9 +50,9 @@ func main() {
 
 	g := makeGraph()
 
-	_, err = c.SignalWithStartWorkflow(context.Background(), fmt.Sprintf("graph_%s", g.ID.Short()), temporalflow.SignalStabilize, struct{}{}, client.StartWorkflowOptions{
+	_, err = c.SignalWithStartWorkflow(context.Background(), fmt.Sprintf("graph_%s", g.ID.Short()), temporalflow.SignalStabilize, temporalflow.SignalStabilizeArgs{}, client.StartWorkflowOptions{
 		TaskQueue: "default",
-	}, wf.HostGraph, g)
+	}, wf.Orchestrate, g)
 	if err != nil {
 		slog.Error("Unable to start workflow", slog.Any("err", err))
 		os.Exit(1)
@@ -98,10 +98,12 @@ func makeGraph() (g temporalflow.SerializedGraph) {
 	}, greetNodes...)
 	for index := range splay {
 		g.Edges = append(g.Edges, temporalflow.SerializedEdge{
-			FromLabel: nameVar.Label, ToLabel: fmt.Sprintf("greet_%02d", index),
+			From: temporalflow.NodeSelector{Label: nameVar.Label},
+			To:   temporalflow.NodeSelector{Label: fmt.Sprintf("greet_%02d", index)},
 		})
 		g.Edges = append(g.Edges, temporalflow.SerializedEdge{
-			FromLabel: fmt.Sprintf("greet_%02d", index), ToLabel: obs.Label,
+			From: temporalflow.NodeSelector{Label: fmt.Sprintf("greet_%02d", index)},
+			To:   temporalflow.NodeSelector{Label: obs.Label},
 		})
 	}
 	return

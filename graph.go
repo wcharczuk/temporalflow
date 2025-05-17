@@ -66,10 +66,8 @@ var (
 
 // SerializedEdge is a serialized form of the state that tracks if two nodes are connected.
 type SerializedEdge struct {
-	FromID    incr.Identifier
-	FromLabel string
-	ToID      incr.Identifier
-	ToLabel   string
+	From NodeSelector
+	To   NodeSelector
 }
 
 func (sg SerializedGraph) FlowGraph() (g FlowGraph, err error) {
@@ -135,33 +133,33 @@ func (sg SerializedGraph) FlowGraph() (g FlowGraph, err error) {
 		}
 	}
 	for _, e := range sg.Edges {
-		fromID := e.FromID
+		fromID := e.From.ID
 		if fromID.IsZero() {
-			fromID = g.NodeLabelLookup[e.FromLabel]
+			fromID = g.NodeLabelLookup[e.From.Label]
 		}
 		if fromID.IsZero() {
 			continue
 		}
-		toID := e.ToID
+		toID := e.To.ID
 		if toID.IsZero() {
-			toID = g.NodeLabelLookup[e.ToLabel]
+			toID = g.NodeLabelLookup[e.To.Label]
 		}
 		if toID.IsZero() {
 			continue
 		}
 		fromNode, ok := g.NodeLookup[fromID]
 		if !ok {
-			err = fmt.Errorf("from node with id %s not found", e.FromID)
+			err = fmt.Errorf("from node with id %s not found", e.From.ID)
 			return
 		}
 		toNode, ok := g.NodeLookup[toID]
 		if !ok {
-			err = fmt.Errorf("to node with id %s not found", e.ToID)
+			err = fmt.Errorf("to node with id %s not found", e.To.ID)
 			return
 		}
 		typedForAddNode, ok := toNode.(IAddInput[any])
 		if !ok {
-			err = fmt.Errorf("to node with id %s cannot add nodes", e.ToID)
+			err = fmt.Errorf("to node with id %s cannot add nodes", e.To.ID)
 			return
 		}
 		typedForAddNode.AddInput(fromNode.(incr.Incr[any]))
@@ -201,18 +199,26 @@ func (fg FlowGraph) Serialize() (output SerializedGraph) {
 		output.Nodes = append(output.Nodes, serializeNode(n))
 		for _, p := range incr.ExpertNode(n).Parents() {
 			output.Edges = append(output.Edges, SerializedEdge{
-				FromID:    p.Node().ID(),
-				FromLabel: p.Node().Label(),
-				ToID:      n.Node().ID(),
-				ToLabel:   n.Node().Label(),
+				From: NodeSelector{
+					ID:    p.Node().ID(),
+					Label: p.Node().Label(),
+				},
+				To: NodeSelector{
+					ID:    n.Node().ID(),
+					Label: n.Node().Label(),
+				},
 			})
 		}
 		for _, o := range incr.ExpertNode(n).Observers() {
 			output.Edges = append(output.Edges, SerializedEdge{
-				FromID:    n.Node().ID(),
-				FromLabel: n.Node().Label(),
-				ToID:      o.Node().ID(),
-				ToLabel:   o.Node().Label(),
+				From: NodeSelector{
+					ID:    n.Node().ID(),
+					Label: n.Node().Label(),
+				},
+				To: NodeSelector{
+					ID:    o.Node().ID(),
+					Label: o.Node().Label(),
+				},
 			})
 		}
 	}

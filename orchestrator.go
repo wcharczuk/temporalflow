@@ -18,8 +18,8 @@ var (
 )
 
 type NodeSelector struct {
-	NodeID    incr.Identifier
-	NodeLabel string
+	ID    incr.Identifier
+	Label string
 }
 
 type SignalSetVariableArgs struct {
@@ -27,15 +27,22 @@ type SignalSetVariableArgs struct {
 	Value    any
 }
 
-func (w Orchestrator) HostGraph(ctx workflow.Context, graph SerializedGraph) error {
-	flowGraph, err := graph.FlowGraph()
+type SignalStabilizeArgs struct{}
+
+func (w Orchestrator) Orchestrate(ctx workflow.Context, graph SerializedGraph) (err error) {
+	var flowGraph FlowGraph
+	flowGraph, err = graph.FlowGraph()
 	if err != nil {
-		return err
+		return
 	}
 	start := workflow.Now(ctx)
-	workflow.GetLogger(ctx).Info("host graph workflow starting")
+	workflow.GetLogger(ctx).Info("orchestrator workflow starting")
 	defer func() {
-		workflow.GetLogger(ctx).Info("host graph workflow exiting", slog.Duration("elapsed", workflow.Now(ctx).Sub(start)))
+		if err != nil {
+			workflow.GetLogger(ctx).Info("orchestrator workflow exiting; failure", slog.Any("err", err), slog.Duration("elapsed", workflow.Now(ctx).Sub(start)))
+		} else {
+			workflow.GetLogger(ctx).Info("orchestrator workflow exiting; completed", slog.Duration("elapsed", workflow.Now(ctx).Sub(start)))
+		}
 	}()
 	if err = workflow.SetQueryHandler(ctx, QueryValues, func() (outputValues map[string]any, err error) {
 		outputValues = make(map[string]any)
@@ -48,13 +55,13 @@ func (w Orchestrator) HostGraph(ctx workflow.Context, graph SerializedGraph) err
 		}
 		return
 	}); err != nil {
-		return err
+		return
 	}
 	if err = workflow.SetQueryHandler(ctx, QueryGraph, func() (outputGraph SerializedGraph, err error) {
 		outputGraph = flowGraph.Serialize()
 		return
 	}); err != nil {
-		return err
+		return
 	}
 
 	signalStabilizeChannel := workflow.GetSignalChannel(ctx, SignalStabilize)
@@ -73,13 +80,14 @@ func (w Orchestrator) HostGraph(ctx workflow.Context, graph SerializedGraph) err
 		sel.AddReceive(signalSetVariableChannel, func(setVariableChannel workflow.ReceiveChannel, _ bool) {
 			var data SignalSetVariableArgs
 			_ = setVariableChannel.Receive(ctx, &data)
-			nodeID := data.Selector.NodeID
-			if data.Selector.NodeID.IsZero() {
-				nodeID = flowGraph.NodeLabelLookup[data.Selector.NodeLabel]
+			nodeID := data.Selector.ID
+			if data.Selector.ID.IsZero() {
+				nodeID = flowGraph.NodeLabelLookup[data.Selector.Label]
 			}
-			// if we didn't get a nodeID, or we couldn't look up the nodeID by nodeLabel, fail
 
-			logAttrs := []any{slog.String("nodeID", data.Selector.NodeID.Short()), slog.String("nodeLabel", data.Selector.NodeLabel)}
+			logAttrs := []any{slog.String("nodeID", data.Selector.ID.Short()), slog.String("nodeLabel", data.Selector.Label)}
+
+			// if we didn't get a nodeID, or we couldn't look up the nodeID by nodeLabel, fail
 			if nodeID.IsZero() {
 				workflow.GetLogger(ctx).Info("signal set value; nodeID is zero, cannot continue", logAttrs...)
 				return
@@ -100,7 +108,7 @@ func (w Orchestrator) HostGraph(ctx workflow.Context, graph SerializedGraph) err
 		})
 		sel.Select(ctx)
 		if workflow.GetInfo(ctx).GetContinueAsNewSuggested() {
-			return workflow.NewContinueAsNewError(ctx, w.HostGraph, flowGraph.Serialize())
+			return workflow.NewContinueAsNewError(ctx, w.Orchestrate, flowGraph.Serialize())
 		}
 	}
 	return nil
@@ -119,7 +127,6 @@ func (w Orchestrator) parallelRecompute(ctx workflow.Context, graph *FlowGraph) 
 	if incr.ExpertGraph(graph.Graph).RecomputeHeapLen() == 0 {
 		return
 	}
-
 	var immediateRecompute []incr.INode
 	recomputeNode := func(ctx context.Context, n incr.INode) (err error) {
 		err = eg.Recompute(ctx, n, true)
