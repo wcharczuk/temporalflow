@@ -167,7 +167,7 @@ exit:
 		if eg.ClearRecomputeHeapOnError() {
 			aborted := eg.RecomputeHeapClear()
 			for _, node := range aborted {
-				for _, ah := range incr.ExpertNode(node).OnAbortHandlers() {
+				for _, ah := range incr.ExpertNode(node).OnAbortedHandlers() {
 					ah(stabilizeCtx, err)
 				}
 			}
