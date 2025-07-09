@@ -13,6 +13,7 @@ type Orchestrator struct{}
 var (
 	SignalStabilize   = "flow_signal_stabilize"
 	SignalSetVariable = "flow_signal_set_variable"
+	SignalQuit        = "flow_signal_quit"
 	QueryValues       = "flow_query_values"
 	QueryGraph        = "flow_query_graph"
 )
@@ -28,6 +29,7 @@ type SignalSetVariableArgs struct {
 }
 
 type SignalStabilizeArgs struct{}
+type SignalQuitArgs struct{}
 
 func (w Orchestrator) Orchestrate(ctx workflow.Context, graph SerializedGraph) (err error) {
 	var flowGraph FlowGraph
@@ -66,9 +68,14 @@ func (w Orchestrator) Orchestrate(ctx workflow.Context, graph SerializedGraph) (
 
 	signalStabilizeChannel := workflow.GetSignalChannel(ctx, SignalStabilize)
 	signalSetVariableChannel := workflow.GetSignalChannel(ctx, SignalSetVariable)
+	signalQuitChannel := workflow.GetSignalChannel(ctx, SignalQuit)
 	var shouldExit bool
 	for !shouldExit {
 		sel := workflow.NewSelector(ctx)
+		sel.AddReceive(signalQuitChannel, func(r workflow.ReceiveChannel, _ bool) {
+			workflow.GetLogger(ctx).Info("signaled to exit!")
+			shouldExit = true
+		})
 		sel.AddReceive(signalStabilizeChannel, func(r workflow.ReceiveChannel, _ bool) {
 			_ = r.Receive(ctx, nil)
 			err = w.parallelRecompute(ctx, &flowGraph)

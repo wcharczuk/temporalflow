@@ -16,14 +16,38 @@ func Test_E2E(t *testing.T) {
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()
 	defer env.AssertExpectations(t)
-
 	wf := Orchestrator{}
 	env.RegisterWorkflow(wf.Orchestrate)
-
 	env.RegisterActivity(greeter)
+	env.RegisterDelayedCallback(func() {
+		env.SignalWorkflow(SignalSetVariable, SignalSetVariableArgs{
+			Selector: NodeSelector{
+				Label: "name",
+			},
+			Value: "not-bufo",
+		})
+	}, time.Second)
+	env.RegisterDelayedCallback(func() {
+		env.SignalWorkflow(SignalStabilize, SignalStabilizeArgs{})
+	}, time.Second)
+
+	env.RegisterDelayedCallback(func() {
+		env.SignalWorkflow(SignalQuit, SignalQuitArgs{})
+	}, 2*time.Second)
 
 	graph := makeGraph()
+	env.ExecuteWorkflow(wf.Orchestrate, graph)
+	err := env.GetWorkflowError()
+	if err != nil {
+		t.Errorf("execution failed %v", err)
+		t.FailNow()
+	}
 
+	_, err = env.QueryWorkflow(QueryValues)
+	if err != nil {
+		t.Errorf("query workflow failed %v", err)
+		t.FailNow()
+	}
 }
 
 func greeter(ctx context.Context, name string) (string, error) {
