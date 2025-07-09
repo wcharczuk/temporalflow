@@ -57,8 +57,6 @@ var (
 	NodeKindActivity NodeKind = "activity"
 	// NodeKindLocalActivity is a node that takes inputs and produces an output but runs locally.
 	NodeKindLocalActivity NodeKind = "local_activity"
-	// NodeKindGenerator is a node that takes inputs and produces a new graph of nodes.
-	NodeKindGenerator NodeKind = "generator"
 	// NodeKindObserver is a node that takes inputs and marks the nodes that
 	// produced them as "observed" or relevant for the computation.
 	NodeKindObserver NodeKind = incr.KindObserver

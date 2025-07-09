@@ -1,0 +1,75 @@
+package temporalflow
+
+import (
+	"context"
+	"fmt"
+	"testing"
+	"time"
+
+	"github.com/wcharczuk/go-incr"
+	"go.temporal.io/sdk/temporal"
+	"go.temporal.io/sdk/testsuite"
+	"go.temporal.io/sdk/workflow"
+)
+
+func Test_E2E(t *testing.T) {
+	var suite testsuite.WorkflowTestSuite
+	env := suite.NewTestWorkflowEnvironment()
+	defer env.AssertExpectations(t)
+
+	wf := Orchestrator{}
+	env.RegisterWorkflow(wf.Orchestrate)
+
+	env.RegisterActivity(greeter)
+
+	graph := makeGraph()
+
+}
+
+func greeter(ctx context.Context, name string) (string, error) {
+	return fmt.Sprintf("Hello %s!", name), nil
+}
+
+func makeGraph() (g SerializedGraph) {
+	g.ID = incr.NewIdentifier()
+	nameVar := SerializedNode{
+		Kind:  NodeKindVariable,
+		Label: "name",
+		Value: "Bufo",
+	}
+	obs := SerializedNode{
+		Kind:  NodeKindObserver,
+		Label: "obs",
+	}
+	var greetNodes []SerializedNode
+	for index := range 3 {
+		greetNodes = append(greetNodes, SerializedNode{
+			Kind:         NodeKindActivity,
+			Label:        fmt.Sprintf("greet_%02d", index),
+			ActivityType: "greeter",
+			ActivityOptions: &workflow.ActivityOptions{
+				StartToCloseTimeout: 10 * time.Second,
+				RetryPolicy: &temporal.RetryPolicy{
+					InitialInterval:    5 * time.Second,
+					BackoffCoefficient: 1.0,
+					MaximumAttempts:    5,
+				},
+			},
+		})
+	}
+	g.Nodes = append([]SerializedNode{
+		nameVar,
+		obs,
+	}, greetNodes...)
+	for index := range 3 {
+		g.Edges = append(g.Edges, SerializedEdge{
+			From: NodeSelector{Label: nameVar.Label},
+			To:   NodeSelector{Label: fmt.Sprintf("greet_%02d", index)},
+		})
+		g.Edges = append(g.Edges, SerializedEdge{
+			From: NodeSelector{Label: fmt.Sprintf("greet_%02d", index)},
+			To:   NodeSelector{Label: obs.Label},
+		})
+	}
+	return
+}
