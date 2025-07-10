@@ -30,7 +30,6 @@ func Test_E2E(t *testing.T) {
 	env.RegisterDelayedCallback(func() {
 		env.SignalWorkflow(SignalStabilize, SignalStabilizeArgs{})
 	}, time.Second)
-
 	env.RegisterDelayedCallback(func() {
 		env.SignalWorkflow(SignalQuit, SignalQuitArgs{})
 	}, 2*time.Second)
@@ -43,9 +42,27 @@ func Test_E2E(t *testing.T) {
 		t.FailNow()
 	}
 
-	_, err = env.QueryWorkflow(QueryValues)
+	val, err := env.QueryWorkflow(QueryValues)
 	if err != nil {
 		t.Errorf("query workflow failed %v", err)
+		t.FailNow()
+	}
+	var output = make(QueryValuesReturn)
+	err = val.Get(&output)
+	if err != nil {
+		t.Errorf("deserializing query result failed %v", err)
+		t.FailNow()
+	}
+	obsValue, ok := output["obs"]
+	if !ok {
+		t.Error("output observer node not found in query output")
+		t.Errorf("graph: %#v", output)
+		t.FailNow()
+	}
+
+	expected := "Hello not-bufo!"
+	if typedObsValue, _ := obsValue.(string); typedObsValue != expected {
+		t.Errorf(`expected observer value to be %q, was %q`, expected, obsValue)
 		t.FailNow()
 	}
 }

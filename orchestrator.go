@@ -31,6 +31,8 @@ type SignalSetVariableArgs struct {
 type SignalStabilizeArgs struct{}
 type SignalQuitArgs struct{}
 
+type QueryValuesReturn map[string]any
+
 func (w Orchestrator) Orchestrate(ctx workflow.Context, graph SerializedGraph) (err error) {
 	var flowGraph FlowGraph
 	flowGraph, err = graph.FlowGraph()
@@ -46,8 +48,8 @@ func (w Orchestrator) Orchestrate(ctx workflow.Context, graph SerializedGraph) (
 			workflow.GetLogger(ctx).Info("orchestrator workflow exiting; completed", slog.Duration("elapsed", workflow.Now(ctx).Sub(start)))
 		}
 	}()
-	if err = workflow.SetQueryHandler(ctx, QueryValues, func() (outputValues map[string]any, err error) {
-		outputValues = make(map[string]any)
+	if err = workflow.SetQueryHandler(ctx, QueryValues, func() (outputValues QueryValuesReturn, err error) {
+		outputValues = make(QueryValuesReturn)
 		for _, obs := range flowGraph.Observers {
 			labelOrID := obs.Node().Label()
 			if labelOrID == "" {

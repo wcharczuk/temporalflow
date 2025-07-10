@@ -19,6 +19,28 @@ type SerializedGraph struct {
 	SetDuringStabilization []incr.Identifier
 }
 
+func (s SerializedGraph) NodeByID(id incr.Identifier) (node SerializedNode, ok bool) {
+	for _, n := range s.Nodes {
+		if n.ID == id {
+			node = n
+			ok = true
+			return
+		}
+	}
+	return
+}
+
+func (s SerializedGraph) NodeByLabel(label string) (node SerializedNode, ok bool) {
+	for _, n := range s.Nodes {
+		if n.Label == label {
+			node = n
+			ok = true
+			return
+		}
+	}
+	return
+}
+
 // SerializedNode is a node in a graph.
 type SerializedNode struct {
 	ID    incr.Identifier
