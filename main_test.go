@@ -19,17 +19,26 @@ func Test_E2E(t *testing.T) {
 	wf := Orchestrator{}
 	env.RegisterWorkflow(wf.Orchestrate)
 	env.RegisterActivity(greeter)
+
+	env.RegisterDelayedCallback(func() {
+		env.SignalWorkflow(SignalStabilize, SignalStabilizeArgs{})
+	}, time.Second)
+	assertObserverValue(t, env, "Hello Bufo!", 2*time.Second)
+
 	env.RegisterDelayedCallback(func() {
 		env.SignalWorkflow(SignalSetVariable, SignalSetVariableArgs{
 			Selector: NodeSelector{
 				Label: "name",
 			},
-			Value: "not-bufo",
+			Value: "not-Bufo",
 		})
-	}, time.Second)
+	}, 3*time.Second)
 	env.RegisterDelayedCallback(func() {
 		env.SignalWorkflow(SignalStabilize, SignalStabilizeArgs{})
-	}, time.Second)
+	}, 3*time.Second)
+
+	assertObserverValue(t, env, "Hello not-Bufo!", 4*time.Second)
+
 	env.RegisterDelayedCallback(func() {
 		env.SignalWorkflow(SignalQuit, SignalQuitArgs{})
 	}, 2*time.Second)
@@ -42,29 +51,33 @@ func Test_E2E(t *testing.T) {
 		t.FailNow()
 	}
 
-	val, err := env.QueryWorkflow(QueryValues)
-	if err != nil {
-		t.Errorf("query workflow failed %v", err)
-		t.FailNow()
-	}
-	var output = make(QueryValuesReturn)
-	err = val.Get(&output)
-	if err != nil {
-		t.Errorf("deserializing query result failed %v", err)
-		t.FailNow()
-	}
-	obsValue, ok := output["obs"]
-	if !ok {
-		t.Error("output observer node not found in query output")
-		t.Errorf("graph: %#v", output)
-		t.FailNow()
-	}
+}
 
-	expected := "Hello not-bufo!"
-	if typedObsValue, _ := obsValue.(string); typedObsValue != expected {
-		t.Errorf(`expected observer value to be %q, was %q`, expected, obsValue)
-		t.FailNow()
-	}
+func assertObserverValue(t *testing.T, env *testsuite.TestWorkflowEnvironment, expected string, after time.Duration) {
+	t.Helper()
+	env.RegisterDelayedCallback(func() {
+		val, err := env.QueryWorkflow(QueryValues)
+		if err != nil {
+			t.Errorf("query workflow failed %v", err)
+			t.FailNow()
+		}
+		var output = make(QueryValuesReturn)
+		err = val.Get(&output)
+		if err != nil {
+			t.Errorf("deserializing query result failed %v", err)
+			t.FailNow()
+		}
+		obsValue, ok := output["obs"]
+		if !ok {
+			t.Error("output observer node not found in query output")
+			t.Errorf("graph: %#v", output)
+			t.FailNow()
+		}
+		if typedObsValue, _ := obsValue.(string); typedObsValue != expected {
+			t.Errorf(`expected observer value to be %q, was %q`, expected, obsValue)
+			t.FailNow()
+		}
+	}, after)
 }
 
 func greeter(ctx context.Context, name string) (string, error) {
