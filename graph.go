@@ -7,19 +7,19 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
-// SerializedGraph is the serialized form of a graph.
-type SerializedGraph struct {
+// Graph is the serialized form of a graph.
+type Graph struct {
 	ID                     incr.Identifier
 	Label                  string
 	Status                 int32
 	StabilizationNum       uint64
-	Nodes                  []SerializedNode
-	Edges                  []SerializedEdge
+	Nodes                  []Node
+	Edges                  []Edge
 	RecomputeHeap          []incr.Identifier
 	SetDuringStabilization []incr.Identifier
 }
 
-func (s SerializedGraph) NodeByID(id incr.Identifier) (node SerializedNode, ok bool) {
+func (s Graph) NodeByID(id incr.Identifier) (node Node, ok bool) {
 	for _, n := range s.Nodes {
 		if n.ID == id {
 			node = n
@@ -30,7 +30,7 @@ func (s SerializedGraph) NodeByID(id incr.Identifier) (node SerializedNode, ok b
 	return
 }
 
-func (s SerializedGraph) NodeByLabel(label string) (node SerializedNode, ok bool) {
+func (s Graph) NodeByLabel(label string) (node Node, ok bool) {
 	for _, n := range s.Nodes {
 		if n.Label == label {
 			node = n
@@ -41,8 +41,8 @@ func (s SerializedGraph) NodeByLabel(label string) (node SerializedNode, ok bool
 	return
 }
 
-// SerializedNode is a node in a graph.
-type SerializedNode struct {
+// Node is a node in a graph.
+type Node struct {
 	ID    incr.Identifier
 	Label string
 	Kind  NodeKind
@@ -84,13 +84,13 @@ var (
 	NodeKindObserver NodeKind = incr.KindObserver
 )
 
-// SerializedEdge is a serialized form of the state that tracks if two nodes are connected.
-type SerializedEdge struct {
+// Edge is a serialized form of the state that tracks if two nodes are connected.
+type Edge struct {
 	From NodeSelector
 	To   NodeSelector
 }
 
-func (sg SerializedGraph) FlowGraph() (g FlowGraph, err error) {
+func (sg Graph) FlowGraph() (g FlowGraph, err error) {
 	g.Graph = incr.New(
 		incr.OptGraphDeterministic(true),
 	)
@@ -209,7 +209,7 @@ type FlowGraph struct {
 	Observers       []incr.ObserveIncr[any]
 }
 
-func (fg FlowGraph) Serialize() (output SerializedGraph) {
+func (fg FlowGraph) Serialize() (output Graph) {
 	output.ID = fg.Graph.ID()
 	output.StabilizationNum = incr.ExpertGraph(fg.Graph).StabilizationNum()
 	output.Label = fg.Graph.Label()
@@ -218,7 +218,7 @@ func (fg FlowGraph) Serialize() (output SerializedGraph) {
 	for _, n := range fg.NodeLookup {
 		output.Nodes = append(output.Nodes, serializeNode(n))
 		for _, p := range incr.ExpertNode(n).Parents() {
-			output.Edges = append(output.Edges, SerializedEdge{
+			output.Edges = append(output.Edges, Edge{
 				From: NodeSelector{
 					ID:    p.Node().ID(),
 					Label: p.Node().Label(),
@@ -230,7 +230,7 @@ func (fg FlowGraph) Serialize() (output SerializedGraph) {
 			})
 		}
 		for _, o := range incr.ExpertNode(n).Observers() {
-			output.Edges = append(output.Edges, SerializedEdge{
+			output.Edges = append(output.Edges, Edge{
 				From: NodeSelector{
 					ID:    n.Node().ID(),
 					Label: n.Node().Label(),
@@ -245,7 +245,7 @@ func (fg FlowGraph) Serialize() (output SerializedGraph) {
 	return
 }
 
-func serializeNode(n incr.INode) (output SerializedNode) {
+func serializeNode(n incr.INode) (output Node) {
 	output.ID = n.Node().ID()
 	output.Kind = NodeKind(n.Node().Kind())
 	output.Label = n.Node().Label()

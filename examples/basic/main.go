@@ -65,20 +65,20 @@ func main() {
 
 const splay = 1024
 
-func makeGraph() (g temporalflow.SerializedGraph) {
+func makeGraph() (g temporalflow.Graph) {
 	g.ID = incr.NewIdentifier()
-	nameVar := temporalflow.SerializedNode{
+	nameVar := temporalflow.Node{
 		Kind:  temporalflow.NodeKindVariable,
 		Label: "name",
 		Value: "Bufo",
 	}
-	obs := temporalflow.SerializedNode{
+	obs := temporalflow.Node{
 		Kind:  temporalflow.NodeKindObserver,
 		Label: "obs",
 	}
-	var greetNodes []temporalflow.SerializedNode
+	var greetNodes []temporalflow.Node
 	for index := range splay {
-		greetNodes = append(greetNodes, temporalflow.SerializedNode{
+		greetNodes = append(greetNodes, temporalflow.Node{
 			Kind:         temporalflow.NodeKindActivity,
 			Label:        fmt.Sprintf("greet_%02d", index),
 			ActivityType: "greeter",
@@ -92,16 +92,16 @@ func makeGraph() (g temporalflow.SerializedGraph) {
 			},
 		})
 	}
-	g.Nodes = append([]temporalflow.SerializedNode{
+	g.Nodes = append([]temporalflow.Node{
 		nameVar,
 		obs,
 	}, greetNodes...)
 	for index := range splay {
-		g.Edges = append(g.Edges, temporalflow.SerializedEdge{
+		g.Edges = append(g.Edges, temporalflow.Edge{
 			From: temporalflow.NodeSelector{Label: nameVar.Label},
 			To:   temporalflow.NodeSelector{Label: fmt.Sprintf("greet_%02d", index)},
 		})
-		g.Edges = append(g.Edges, temporalflow.SerializedEdge{
+		g.Edges = append(g.Edges, temporalflow.Edge{
 			From: temporalflow.NodeSelector{Label: fmt.Sprintf("greet_%02d", index)},
 			To:   temporalflow.NodeSelector{Label: obs.Label},
 		})

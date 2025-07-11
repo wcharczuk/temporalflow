@@ -33,7 +33,7 @@ type SignalQuitArgs struct{}
 
 type QueryValuesReturn map[string]any
 
-func (w Orchestrator) Orchestrate(ctx workflow.Context, graph SerializedGraph) (err error) {
+func (w Orchestrator) Orchestrate(ctx workflow.Context, graph Graph) (err error) {
 	var flowGraph FlowGraph
 	flowGraph, err = graph.FlowGraph()
 	if err != nil {
@@ -61,7 +61,7 @@ func (w Orchestrator) Orchestrate(ctx workflow.Context, graph SerializedGraph) (
 	}); err != nil {
 		return
 	}
-	if err = workflow.SetQueryHandler(ctx, QueryGraph, func() (outputGraph SerializedGraph, err error) {
+	if err = workflow.SetQueryHandler(ctx, QueryGraph, func() (outputGraph Graph, err error) {
 		outputGraph = flowGraph.Serialize()
 		return
 	}); err != nil {
@@ -75,6 +75,7 @@ func (w Orchestrator) Orchestrate(ctx workflow.Context, graph SerializedGraph) (
 	for !shouldExit {
 		sel := workflow.NewSelector(ctx)
 		sel.AddReceive(signalQuitChannel, func(r workflow.ReceiveChannel, _ bool) {
+			_ = r.Receive(ctx, nil)
 			workflow.GetLogger(ctx).Info("signaled to exit!")
 			shouldExit = true
 		})

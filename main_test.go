@@ -84,20 +84,20 @@ func greeter(ctx context.Context, name string) (string, error) {
 	return fmt.Sprintf("Hello %s!", name), nil
 }
 
-func makeGraph() (g SerializedGraph) {
+func makeGraph() (g Graph) {
 	g.ID = incr.NewIdentifier()
-	nameVar := SerializedNode{
+	nameVar := Node{
 		Kind:  NodeKindVariable,
 		Label: "name",
 		Value: "Bufo",
 	}
-	obs := SerializedNode{
+	obs := Node{
 		Kind:  NodeKindObserver,
 		Label: "obs",
 	}
-	var greetNodes []SerializedNode
+	var greetNodes []Node
 	for index := range 3 {
-		greetNodes = append(greetNodes, SerializedNode{
+		greetNodes = append(greetNodes, Node{
 			Kind:         NodeKindActivity,
 			Label:        fmt.Sprintf("greet_%02d", index),
 			ActivityType: "greeter",
@@ -111,16 +111,16 @@ func makeGraph() (g SerializedGraph) {
 			},
 		})
 	}
-	g.Nodes = append([]SerializedNode{
+	g.Nodes = append([]Node{
 		nameVar,
 		obs,
 	}, greetNodes...)
 	for index := range 3 {
-		g.Edges = append(g.Edges, SerializedEdge{
+		g.Edges = append(g.Edges, Edge{
 			From: NodeSelector{Label: nameVar.Label},
 			To:   NodeSelector{Label: fmt.Sprintf("greet_%02d", index)},
 		})
-		g.Edges = append(g.Edges, SerializedEdge{
+		g.Edges = append(g.Edges, Edge{
 			From: NodeSelector{Label: fmt.Sprintf("greet_%02d", index)},
 			To:   NodeSelector{Label: obs.Label},
 		})
